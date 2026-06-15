@@ -62,3 +62,10 @@ def test_is_valid_detects_settings_drift(tmp_path):
 def test_is_valid_none_state():
     ok, reason = state.is_valid(None, config.Settings())
     assert ok is False and reason
+
+
+def test_scene_rating_weight_changes_fingerprint():
+    from config import Settings
+    import state
+    assert (state.settings_fingerprint(Settings())
+            != state.settings_fingerprint(Settings(scene_rating_weight=0.9)))

@@ -55,3 +55,7 @@ def test_manifest_exposes_mirror_setting_and_backup_tasks():
             / "restash" / "restash.yml").read_text()
     assert "mirrorToRating100" in text
     assert "backup-ratings" in text and "restore-ratings" in text
+
+def test_scene_rating_weight_default():
+    from config import Settings
+    assert Settings().scene_rating_weight == 0.5

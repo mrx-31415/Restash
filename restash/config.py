@@ -55,6 +55,7 @@ class Settings:
     perf_w_fresh: float = 0.15
     perf_w_supply: float = 0.15
     perf_w_novelty: float = 0.10
+    scene_rating_weight: float = 0.5   # D22: manual scene-rating prior blended into base
     # D11 (dry-run finding 2026-06-05): only treat a scene as "abandoned" when
     # completion is ALSO low. Stash resets resume_time to 0 on a finished scene,
     # so resume_time alone falsely penalized fully-watched scenes.
