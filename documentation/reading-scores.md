@@ -18,5 +18,10 @@ discoveries" where `restash_score` ≥ 90).
     Stash supports custom-field *filtering* but not *sorting* in the UI, so sort by score via the
     API/client.
 
+!!! tip "Native sorting"
+    With the **rating100 mirror** enabled (see [Settings](settings.md)), Stash's built-in
+    *Rating, descending* sort follows your Restash score. The `custom_fields` score remains the
+    canonical, non-destructive signal.
+
 See **[What gets written](index.md#what-gets-written)** for the full list of `restash_*` keys and
 their types.

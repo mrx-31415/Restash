@@ -9,6 +9,8 @@ eyeball the breakdown, then **Recompute All**.
 | **Recompute All** | `full` | Reads, rebuilds the taste model, scores, and **writes** `restash_*` to scenes + performers. Skips entities whose score is unchanged. |
 | **Quick Refresh** | `refresh` | Fast daily re-score from the cached taste model (written by `Recompute All`): re-applies freshness, novelty, jitter, and wildcards **without** rebuilding affinities or reading watch histories. Self-heals to a full recompute if the cache is missing or stale. See [Scheduling](scheduling.md). |
 | **Clear Restash Data** | `clear` | Removes the `restash_*` keys from every entity. Other custom fields and `rating100` are left untouched. |
+| **Backup Ratings** | `backup-ratings` | Snapshots every scene/performer's current native `rating100` to `restash_ratings_backup.json` in the plugin folder. Rotates any existing backup to a timestamped copy. Run before enabling the mirror. |
+| **Restore Ratings** | `restore-ratings` | Writes the backed-up `rating100` values back, reverting the library to the exact backup snapshot (restores originals **and** clears mirror-applied ratings). |
 
 !!! note "Non-destructive by design"
     Writes use the **partial** form of `CustomFieldsInput` (merge), so your own custom fields
@@ -30,6 +32,23 @@ eyeball the breakdown, then **Recompute All**.
 
     If that's a concern, **run `Dry Run Report` first** (it writes nothing, so it fires no hooks), and
     consider temporarily disabling other update-hook plugins for the initial full recompute.
+
+## Mirroring to rating100
+
+By default Restash never touches the native `rating100` star rating. If you want the in-app
+*Rating, descending* sort to follow your Restash score, enable **Also mirror score to rating100** in
+Settings. The workflow:
+
+1. (Optional) Run **Backup Ratings** for an explicit snapshot — the first mirror write auto-creates
+   one anyway.
+2. Enable the toggle and run **Recompute All** (or **Quick Refresh**). Each written entity now gets
+   `rating100 = restash_score`.
+3. To undo, run **Restore Ratings** — it reverts `rating100` to the backup snapshot exactly.
+
+!!! note
+    Restore reverts to the **backup snapshot**: any native ratings you set *after* the backup are
+    discarded. When the mirror is on, an entity is also re-written if its score is unchanged but its
+    `rating100` doesn't match yet (so flipping the toggle on mirrors the whole library on the next run).
 
 ## The taste-model cache
 

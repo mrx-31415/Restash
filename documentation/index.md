@@ -7,13 +7,14 @@ into a personalised **0–100 "freshness" score**. The score answers *"what do I
 now?"* and changes over time.
 
 The score is written **only** into each entity's `custom_fields` (keys prefixed `restash_`). The
-native `rating100` star rating is **never touched**.
+native `rating100` star rating is **never touched by default** — an optional, reversible mirror
+exists if you want it (see [Mirroring to rating100](usage.md#mirroring-to-rating100)).
 
-!!! info "Status — 0.2.3"
+!!! info "Status — 0.3.0"
     The scoring engine, the write path (`Recompute All`, `Clear Restash Data`), and
     `Quick Refresh` (a fast daily re-score from a cached taste model) are complete and validated
-    end-to-end against a real ~5,900-scene library. The optional `rating100` mirror remains a
-    separate future feature.
+    end-to-end against a real ~5,900-scene library. The optional `rating100` mirror (with
+    **Backup/Restore Ratings**) and the manual-rating taste prior are now available.
 
 ## What it does
 
@@ -50,6 +51,9 @@ fields are preserved):
 | `restash_updated` | UTC ISO-8601 | when this entity was last scored |
 
 `restash_score` is floored at 1, so an API consumer can treat absent/0 as "not scored".
+
+`rating100` (native rating) is written **only** when the optional *Also mirror score to rating100*
+setting is enabled — off by default, and reversible via **Backup/Restore Ratings**.
 
 ## Where to next
 
