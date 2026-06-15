@@ -14,8 +14,9 @@ eyeball the breakdown, then **Recompute All**.
 
 !!! note "Non-destructive by design"
     Writes use the **partial** form of `CustomFieldsInput` (merge), so your own custom fields
-    survive; `Clear` uses the **remove** form. The plugin **never writes `rating100`**, and it
-    registers no update hooks (so it can't trigger itself).
+    survive; `Clear` uses the **remove** form. By default the plugin **never writes `rating100`**
+    (only the optional, reversible mirror does — see [Mirroring to rating100](#mirroring-to-rating100)),
+    and it registers no update hooks (so it can't trigger itself).
 
 <a id="update-hooks"></a>
 
