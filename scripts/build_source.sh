@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the Stash plugin SOURCE site into _site/ (index.yml + restash.zip).
+# Build the Stash plugin SOURCE manifest into _site/ (index.yml + restash.zip).
 #
 # Mirrors stashapp/CommunityScripts' build: the zip holds the plugin directory's
 # CONTENTS with no top-level folder; version is "<manifest version>-<short git
@@ -7,6 +7,11 @@
 #
 # Runs on macOS (shasum) and Linux/CI (sha256sum). Needs git history, so in CI
 # check out with fetch-depth: 0.
+#
+# NOTE: this script ADDS to _site/ rather than wiping it, so it can run AFTER
+# `mkdocs build` (which writes the docs HTML into the same _site/). The Pages
+# workflow runs mkdocs first, then this. For a standalone manifest-only build,
+# the mkdir -p below creates _site/ if it doesn't exist yet.
 set -euo pipefail
 
 PLUGIN_DIR="restash"
@@ -21,9 +26,9 @@ sha256() {
   else shasum -a 256 "$1" | cut -d' ' -f1; fi
 }
 
-rm -rf "$OUT"
 mkdir -p "$OUT"
 zipfile="$(pwd)/$OUT/$PLUGIN_ID.zip"
+rm -f "$zipfile"   # zip appends to an existing archive; start clean
 
 # Zip the plugin contents, excluding runtime state, caches, and OS cruft.
 ( cd "$PLUGIN_DIR" && zip -r "$zipfile" . \
