@@ -312,6 +312,7 @@ def _run_refresh(stash, settings: config.Settings) -> int:
     existing_scene_cf = {sid: light_by_id[sid]["custom_fields"] for sid in scene_scores}
     existing_perf_cf = {p.id: p.custom_fields for p in performers}
     if settings.mirror_to_rating100:
+        # Back up ALL light scenes' ratings; pass current_ratings only for the scored subset.
         _ensure_rating_backup(
             {sid: light_by_id[sid].get("rating100") for sid in light_by_id
              if light_by_id[sid].get("rating100") is not None},

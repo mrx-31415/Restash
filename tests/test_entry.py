@@ -274,6 +274,59 @@ def test_run_refresh_writes_from_cache(monkeypatch):
     assert "scene" in calls and "performer" in calls
 
 
+def test_run_refresh_mirror_autobackups_and_passes_current_ratings(monkeypatch):
+    import types
+    cached_scenes = {"1": {"base": 0.2, "n_events": 0,
+                           "created_at": "2025-01-01T00:00:00Z",
+                           "last_engagement": None, "perf_ids": []},
+                     "2": {"base": 0.3, "n_events": 0,
+                           "created_at": "2025-01-01T00:00:00Z",
+                           "last_engagement": None, "perf_ids": []}}
+    fake_state = types.SimpleNamespace(
+        default_state_path=lambda: "/tmp/x.json",
+        load_state=lambda p: {"scenes": cached_scenes,
+                              "affinities": {"performers": {}}},
+        is_valid=lambda st, cfg: (True, "ok"))
+    # Scene "1" has a non-null rating, "2" is None; "3" is a light-only scene
+    # (non-null rating) that is not scored — exercises the id-set divergence.
+    light = [{"id": "1", "rating100": 95, "custom_fields": {}},
+             {"id": "2", "rating100": None, "custom_fields": {}},
+             {"id": "3", "rating100": 60, "custom_fields": {}}]
+    fake_io = types.SimpleNamespace(
+        utcnow=entry.stash_io.utcnow,
+        fetch_scenes_light=lambda s: light,
+        fetch_performers=lambda s: [],
+        _parse_dt=entry.stash_io._parse_dt)
+    Score = lambda: types.SimpleNamespace(restash_score=50)
+    fake_algo = types.SimpleNamespace(
+        # scored subset = {"1", "2"} (not "3")
+        refresh_scene_scores=lambda *a, **k: {"1": Score(), "2": Score()},
+        score_performers=lambda *a, **k: {},
+        _max_dt=entry.algorithm._max_dt)
+    seen = {}
+    def fake_write_scores(stash, entity, scored, existing, cfg, now_iso, current_ratings=None):
+        seen[entity] = current_ratings
+        return {"written": len(scored), "skipped": 0,
+                "would_write": len(scored), "failed": 0}
+    backup_calls = {}
+    fake_rb = types.SimpleNamespace(
+        default_backup_path=lambda: "/tmp/ignored-backup.json",
+        backup_exists=lambda p: False,
+        write_backup=lambda path, **kw: backup_calls.update(kw) or "")
+    monkeypatch.setattr(entry, "state", fake_state)
+    monkeypatch.setattr(entry, "stash_io", fake_io)
+    monkeypatch.setattr(entry, "algorithm", fake_algo)
+    monkeypatch.setattr(entry, "writer", types.SimpleNamespace(
+        write_scores=fake_write_scores, RESTASH_KEYS=entry.writer.RESTASH_KEYS))
+    monkeypatch.setattr(entry, "ratings_backup", fake_rb)
+    rc = entry._run_refresh("STASH", config.Settings(mirror_to_rating100=True))
+    assert rc == 0
+    # auto-backup iterates ALL light scenes, keeping only non-null ratings (incl. unscored "3")
+    assert backup_calls["scenes"] == {"1": 95, "3": 60}
+    # current_ratings is keyed by the scored subset only ({"1","2"}), not "3"
+    assert seen["scene"] == {"1": 95, "2": None}
+
+
 def test_run_dispatches_backup_ratings(monkeypatch):
     captured = {}
     fake_io = types.SimpleNamespace(
