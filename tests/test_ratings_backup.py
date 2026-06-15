@@ -1,5 +1,7 @@
 import os
 import types
+import config
+from datetime import datetime, timezone
 import ratings_backup as rb
 
 
@@ -59,3 +61,61 @@ def test_backup_exists(tmp_path):
     assert rb.backup_exists(p) is False
     rb.write_backup(p, scenes={}, performers={}, written_at="t", rotate=False)
     assert rb.backup_exists(p) is True
+
+
+def _fake_io(scenes_light, performers):
+    return types.SimpleNamespace(
+        fetch_scenes_light=lambda s: scenes_light,
+        fetch_performers=lambda s: performers,
+        utcnow=lambda: datetime(2026, 6, 15, tzinfo=timezone.utc))
+
+
+def test_restore_targets_restores_and_clears():
+    # backup had scene 1 = 80; library now: 1 overwritten to 95, 2 mirror-applied (88)
+    targets = rb._restore_targets({"1": 80}, {"1": 95, "2": 88})
+    assert targets == {"1": 80, "2": None}
+
+def test_restore_targets_skips_already_correct():
+    targets = rb._restore_targets({"1": 80}, {"1": 80, "2": None})
+    assert targets == {}   # 1 already correct, 2 already null
+
+
+def test_run_backup_collects_and_writes(monkeypatch, tmp_path):
+    p = str(tmp_path / "b.json")
+    monkeypatch.setattr(rb, "default_backup_path", lambda: p)
+    monkeypatch.setattr(rb, "stash_io", _fake_io(
+        [{"id": "1", "rating100": 80}, {"id": "2", "rating100": None}],
+        [_perf("9", 50)]))
+    assert rb.run_backup("STASH", config.Settings()) == 0
+    data = rb.load_backup(p)
+    assert data["scenes"] == {"1": 80} and data["performers"] == {"9": 50}
+
+
+def test_run_restore_missing_backup_errors(monkeypatch, tmp_path):
+    monkeypatch.setattr(rb, "default_backup_path", lambda: str(tmp_path / "nope.json"))
+    assert rb.run_restore("STASH", config.Settings()) == 1
+
+
+def test_run_restore_restores_and_clears(monkeypatch, tmp_path):
+    p = str(tmp_path / "b.json")
+    rb.write_backup(p, scenes={"1": 80}, performers={}, written_at="t", rotate=False)
+    monkeypatch.setattr(rb, "default_backup_path", lambda: p)
+    monkeypatch.setattr(rb, "stash_io", _fake_io(
+        [{"id": "1", "rating100": 95}, {"id": "2", "rating100": 88}], []))
+    calls = {}
+    def fake_write_ratings(stash, entity, id_to_rating, cfg):
+        calls[entity] = dict(id_to_rating)
+        return {"written": len(id_to_rating), "failed": 0}
+    monkeypatch.setattr(rb, "writer", types.SimpleNamespace(write_ratings=fake_write_ratings))
+    assert rb.run_restore("STASH", config.Settings()) == 0
+    assert calls["scene"] == {"1": 80, "2": None}   # 1 restored, 2 cleared
+
+
+def test_run_restore_nonzero_when_writes_fail(monkeypatch, tmp_path):
+    p = str(tmp_path / "b.json")
+    rb.write_backup(p, scenes={"1": 80}, performers={}, written_at="t", rotate=False)
+    monkeypatch.setattr(rb, "default_backup_path", lambda: p)
+    monkeypatch.setattr(rb, "stash_io", _fake_io([{"id": "1", "rating100": 95}], []))
+    monkeypatch.setattr(rb, "writer", types.SimpleNamespace(
+        write_ratings=lambda *a, **k: {"written": 0, "failed": 1}))
+    assert rb.run_restore("STASH", config.Settings()) == 1
