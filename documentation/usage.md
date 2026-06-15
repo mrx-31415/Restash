@@ -46,6 +46,12 @@ Settings. The workflow:
    `rating100 = restash_score`.
 3. To undo, run **Restore Ratings** — it reverts `rating100` to the backup snapshot exactly.
 
+!!! tip "Also enable *Blend manual ratings as a taste prior*"
+    Once the mirror overwrites your live `rating100`, that field is Restash's own output — so to keep
+    your **manual** ratings influencing the model, turn on **Blend manual ratings as a taste prior**
+    too. With both on, the prior is read from the pre-mirror **backup snapshot** (not the overwritten
+    live field). If you leave it off, your manual ratings stop feeding the model the moment you mirror.
+
 !!! note
     Restore reverts to the **backup snapshot**: any native ratings you set *after* the backup are
     discarded. When the mirror is on, an entity is also re-written if its score is unchanged but its
