@@ -43,3 +43,19 @@ def test_write_settings_defaults():
 
 def test_write_only_scene_ids_default_empty():
     assert config.Settings().write_only_scene_ids == ()
+
+def test_mirror_to_rating100_flips_from_plugin_settings():
+    from config import Settings
+    assert Settings.from_plugin_settings({"mirrorToRating100": True}).mirror_to_rating100 is True
+    assert Settings().mirror_to_rating100 is False
+
+def test_manifest_exposes_mirror_setting_and_backup_tasks():
+    import pathlib
+    text = (pathlib.Path(__file__).resolve().parent.parent
+            / "restash" / "restash.yml").read_text()
+    assert "mirrorToRating100" in text
+    assert "backup-ratings" in text and "restore-ratings" in text
+
+def test_scene_rating_weight_default():
+    from config import Settings
+    assert Settings().scene_rating_weight == 0.5

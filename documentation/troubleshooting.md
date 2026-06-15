@@ -17,3 +17,8 @@
   Stash update, which fires Stash's update hooks, so any other plugin on a scene/performer update hook
   runs too (once per written entity). This is most noticeable on the first full recompute of a large
   library. See [Writing triggers other plugins' update hooks](usage.md#update-hooks).
+- **My native ratings changed / I want my old ratings back.** You (or a scheduled run) enabled the
+  **rating100 mirror**, which overwrites `rating100` with Restash scores. Run the **Restore Ratings**
+  task to revert to the backup snapshot. Backups live in the plugin folder as
+  `restash_ratings_backup.json` (plus timestamped `restash_ratings_backup.<timestamp>.json` copies from
+  earlier **Backup Ratings** runs).

@@ -555,3 +555,70 @@ def test_refresh_drops_scenes_absent_from_current():
                      "custom_fields": {}}}   # scene 2 deleted from library
     out = algorithm.refresh_scene_scores(cached, current, cfg, now, "2026-06-08")
     assert set(out.keys()) == {"1"}
+
+
+def _bare_scene(id="1", rating100=None):
+    import models
+    from datetime import datetime, timezone
+    return models.SceneData(
+        id=id, title="", play_history=[], o_history=[], play_count=0, o_counter=0,
+        play_duration=0.0, resume_time=None, last_played_at=None, file_duration=None,
+        height=None, marker_count=0, organized=False, date=None,
+        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc), rating100=rating100,
+        tag_ids=[], performer_ids=[], studio_id=None, custom_fields={}, has_file=True)
+
+def test_scene_base_adds_manual_rating_prior_when_respected():
+    import algorithm
+    from config import Settings
+    from datetime import datetime, timezone
+    now = datetime(2026, 6, 15, tzinfo=timezone.utc)
+    aff = {"performers": {}, "tags": {}, "studios": {}}
+    s = _bare_scene("1")
+    off = algorithm.scene_base(s, aff, {}, None, None,
+                               Settings(respect_manual_ratings=False), now,
+                               scene_ratings={"1": 100})
+    on = algorithm.scene_base(s, aff, {}, None, None,
+                              Settings(respect_manual_ratings=True, scene_rating_weight=0.5),
+                              now, scene_ratings={"1": 100})
+    assert on["base"] == off["base"] + 0.5      # (100-50)/50 * 0.5
+    assert on["rating_prior"] == 0.5
+    assert off["rating_prior"] == 0.0
+
+def test_scene_base_low_rating_gives_negative_prior():
+    import algorithm
+    from config import Settings
+    from datetime import datetime, timezone
+    now = datetime(2026, 6, 15, tzinfo=timezone.utc)
+    aff = {"performers": {}, "tags": {}, "studios": {}}
+    s = _bare_scene("1")
+    off = algorithm.scene_base(s, aff, {}, None, None,
+                               Settings(respect_manual_ratings=False), now,
+                               scene_ratings={"1": 0})
+    on = algorithm.scene_base(s, aff, {}, None, None,
+                              Settings(respect_manual_ratings=True, scene_rating_weight=0.5),
+                              now, scene_ratings={"1": 0})
+    assert on["rating_prior"] == -0.5            # (0-50)/50 * 0.5
+    assert on["base"] == off["base"] - 0.5
+
+def test_scene_base_no_prior_when_rating_absent():
+    import algorithm
+    from config import Settings
+    from datetime import datetime, timezone
+    now = datetime(2026, 6, 15, tzinfo=timezone.utc)
+    aff = {"performers": {}, "tags": {}, "studios": {}}
+    comp = algorithm.scene_base(_bare_scene("1"), aff, {}, None, None,
+                                Settings(respect_manual_ratings=True), now,
+                                scene_ratings={})
+    assert comp["rating_prior"] == 0.0
+
+def test_score_scenes_threads_scene_ratings():
+    import algorithm
+    from config import Settings
+    from datetime import datetime, timezone
+    now = datetime(2026, 6, 15, tzinfo=timezone.utc)
+    aff = {"performers": {}, "tags": {}, "studios": {}}
+    cfg = Settings(respect_manual_ratings=True, scene_rating_weight=0.5)
+    scores = algorithm.score_scenes([_bare_scene("hi", 100), _bare_scene("lo", 0)],
+                                    cfg, now, "2026-06-15", aff=aff,
+                                    scene_ratings={"hi": 100, "lo": 0})
+    assert scores["hi"].restash_score > scores["lo"].restash_score

@@ -200,6 +200,17 @@ def test_fetch_scenes_light_maps_minimal_fields(monkeypatch):
     # last_played_at parsed to an aware datetime
     assert row["last_played_at"].year == 2026
 
+def test_scene_light_fragment_requests_rating100():
+    assert "rating100" in stash_io.SCENE_LIGHT_FRAGMENT
+
+def test_map_scene_light_includes_rating100():
+    m = stash_io.map_scene_light({"id": 5, "last_played_at": None, "play_count": 2,
+                                  "o_counter": 1, "rating100": 80, "custom_fields": {}})
+    assert m["id"] == "5" and m["rating100"] == 80
+
+def test_map_scene_light_rating100_defaults_none():
+    assert stash_io.map_scene_light({"id": 5})["rating100"] is None
+
 
 # --- fetch_plugin_settings (settings are read from the server, not the payload) ---
 

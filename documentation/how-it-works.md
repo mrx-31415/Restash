@@ -34,6 +34,19 @@ the narration.
   mean by how many scored scenes they have, so a one-scene ensemble cast can't all sit at the
   ceiling.)*
 
+## Manual ratings as a prior
+
+When **Blend manual ratings as a taste prior** is on, a manual `rating100` feeds the model:
+a performer's rating nudges their affinity, and a **scene's** rating is added to that scene's
+pre-freshness base as `(rating − 50) / 50 × scene_rating_weight` (default `0.5`). Because it blends
+into the base, freshness and cooldown still apply on top, and Quick Refresh inherits it from the
+cached base.
+
+If you also enable the **rating100 mirror**, Restash overwrites `rating100` with its own score — so
+to avoid feeding its own output back in as a "manual" rating, the prior is read from the pre-mirror
+**backup snapshot** instead of the live field. (Manual ratings you set *after* mirroring won't be
+picked up until you Restore, re-rate, and Backup again.)
+
 ## A note on determinism
 
 The date-seeded parts (jitter, wildcards) are identical all day, but the freshness/novelty terms

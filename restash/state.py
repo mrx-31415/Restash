@@ -16,7 +16,7 @@ BASE_AFFECTING_FIELDS = (
     "ingredient_w_perf", "ingredient_w_tag", "ingredient_w_studio",
     "ingredient_w_quality", "satiation_threshold", "satiation_floor",
     "satiation_window_days", "respect_manual_ratings", "favorite_affinity_bonus",
-    "perf_scenes_shrinkage_k",
+    "perf_scenes_shrinkage_k", "scene_rating_weight",
 )
 
 

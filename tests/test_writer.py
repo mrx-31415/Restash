@@ -141,12 +141,56 @@ def test_clear_scores_empty_is_noop():
     assert writer.clear_scores(stash, "scene", [], Settings()) == 0
     assert stash.requests == []
 
-def test_writer_source_has_no_full_or_rating100():
-    # G3: the write layer must never use CustomFieldsInput.full or touch rating100.
+def test_write_scores_mirror_adds_rating100():
+    stash = _RecordingStash()
+    cfg = Settings(mirror_to_rating100=True, write_chunk_size=10)
+    writer.write_scores(stash, "scene", {"1": _ss("1", 80)}, {}, cfg,
+                        "2026-06-15T00:00:00Z")
+    inp = list(stash.requests[0][1].values())[0]
+    assert inp["rating100"] == 80
+    assert "partial" in inp["custom_fields"]
+
+def test_write_scores_no_mirror_omits_rating100():
+    stash = _RecordingStash()
+    cfg = Settings(write_chunk_size=10)   # mirror off (default)
+    writer.write_scores(stash, "scene", {"1": _ss("1", 80)}, {}, cfg,
+                        "2026-06-15T00:00:00Z")
+    inp = list(stash.requests[0][1].values())[0]
+    assert "rating100" not in inp
+
+def test_write_scores_mirror_writes_when_score_unchanged_but_rating_differs():
+    stash = _RecordingStash()
+    existing = {"1": {"restash_score": 80}}   # score unchanged -> would skip without mirror
+    cfg = Settings(mirror_to_rating100=True, write_chunk_size=10)
+    stats = writer.write_scores(stash, "scene", {"1": _ss("1", 80)}, existing, cfg,
+                                "2026-06-15T00:00:00Z", current_ratings={"1": 50})
+    assert stats["written"] == 1
+    assert list(stash.requests[0][1].values())[0]["rating100"] == 80
+
+def test_write_scores_mirror_skips_when_score_and_rating_match():
+    stash = _RecordingStash()
+    existing = {"1": {"restash_score": 80}}
+    cfg = Settings(mirror_to_rating100=True, write_chunk_size=10)
+    stats = writer.write_scores(stash, "scene", {"1": _ss("1", 80)}, existing, cfg,
+                                "2026-06-15T00:00:00Z", current_ratings={"1": 80})
+    assert stats["skipped"] == 1 and stats["written"] == 0
+    assert stash.requests == []
+
+def test_write_scores_off_path_never_emits_rating100():
+    # G3 (behavioural): with the mirror OFF, no write payload carries rating100.
+    stash = _RecordingStash()
+    cfg = Settings(write_chunk_size=10)
+    writer.write_scores(stash, "scene", {"1": _ss("1", 80), "2": _ss("2", 90)}, {},
+                        cfg, "2026-06-15T00:00:00Z")
+    for _, variables in stash.requests:
+        for inp in variables.values():
+            assert "rating100" not in inp
+
+def test_writer_source_has_no_full():
+    # G3: the write layer must never use CustomFieldsInput.full.
     import pathlib
     src = pathlib.Path(writer.__file__).read_text()
     assert '"full"' not in src and "'full'" not in src
-    assert "rating100" not in src
 
 
 class _PartialFailStash:
@@ -180,3 +224,26 @@ def test_clear_scores_counts_only_succeeded_aliases():
     cfg = Settings(write_chunk_size=10)
     cleared = writer.clear_scores(stash, "scene", ["1", "2", "3"], cfg)
     assert cleared == 2
+
+
+def test_write_ratings_sets_values_and_nulls():
+    stash = _RecordingStash()
+    cfg = Settings(write_chunk_size=10)
+    stats = writer.write_ratings(stash, "scene", {"1": 80, "2": None}, cfg)
+    assert stats["written"] == 2 and stats["failed"] == 0
+    by_id = {i["id"]: i for i in stash.requests[0][1].values()}
+    assert by_id["1"]["rating100"] == 80
+    assert by_id["2"]["rating100"] is None
+    for i in stash.requests[0][1].values():
+        assert "custom_fields" not in i   # restore touches ONLY rating100
+
+def test_write_ratings_empty_is_noop():
+    stash = _RecordingStash()
+    assert writer.write_ratings(stash, "scene", {}, Settings()) == {"written": 0, "failed": 0}
+    assert stash.requests == []
+
+def test_write_ratings_batches_by_chunk_size():
+    stash = _RecordingStash()
+    cfg = Settings(write_chunk_size=2)
+    writer.write_ratings(stash, "performer", {str(i): i for i in range(5)}, cfg)
+    assert len(stash.requests) == 3   # 2 + 2 + 1
