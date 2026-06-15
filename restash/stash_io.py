@@ -177,7 +177,7 @@ def _paginate(stash, query: str, root: str, sub: str, per_page: int, mapper,
 
 
 SCENE_LIGHT_FRAGMENT = """
-id last_played_at play_count o_counter custom_fields
+id last_played_at play_count o_counter rating100 custom_fields
 """
 
 _FIND_SCENES_LIGHT = """
@@ -194,6 +194,7 @@ def map_scene_light(raw: dict) -> dict:
         "last_played_at": _parse_dt(raw.get("last_played_at")),
         "play_count": raw.get("play_count") or 0,
         "o_counter": raw.get("o_counter") or 0,
+        "rating100": raw.get("rating100"),
         "custom_fields": raw.get("custom_fields") or {},
     }
 
