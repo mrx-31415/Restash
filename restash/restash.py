@@ -6,6 +6,7 @@ import sys
 import algorithm
 import config
 import models
+import ratings_backup
 import report
 import state
 import stash_io
@@ -59,6 +60,10 @@ def run(payload: dict) -> int:
         return _run_clear(stash, settings)
     if mode == "refresh":
         return _run_refresh(stash, settings)
+    if mode == "backup-ratings":
+        return ratings_backup.run_backup(stash, settings)
+    if mode == "restore-ratings":
+        return ratings_backup.run_restore(stash, settings)
     log.error(f"Restash: unknown mode '{mode}'.")
     return 1
 
@@ -81,12 +86,15 @@ def _run_dry(stash, settings: config.Settings) -> int:
              f"(exclude tag id={exclude_id}).")
 
     favorites = {p.id for p in performers if p.favorite}
-    ratings = ({p.id: p.rating100 for p in performers if p.rating100 is not None}
-               if settings.respect_manual_ratings else {})
+    scene_ratings, perf_ratings = _manual_ratings(
+        settings,
+        live_scene={s.id: s.rating100 for s in scenes if s.rating100 is not None},
+        live_perf={p.id: p.rating100 for p in performers if p.rating100 is not None})
 
-    aff = algorithm.build_affinities(scenes, now, settings, favorites, ratings)
+    aff = algorithm.build_affinities(scenes, now, settings, favorites, perf_ratings)
     scene_scores = algorithm.score_scenes(scenes, settings, now, date_seed,
-                                          favorites, ratings, aff)
+                                          favorites, perf_ratings, aff,
+                                          scene_ratings=scene_ratings)
     log.progress(0.85)
     performer_scores = algorithm.score_performers(performers, scenes, scene_scores,
                                                  aff, settings, now)
@@ -136,12 +144,15 @@ def _run_full(stash, settings: config.Settings) -> int:
              f"performers (exclude tag id={exclude_id}).")
 
     favorites = {p.id for p in kept_performers if p.favorite}
-    ratings = ({p.id: p.rating100 for p in kept_performers if p.rating100 is not None}
-               if settings.respect_manual_ratings else {})
+    scene_ratings, perf_ratings = _manual_ratings(
+        settings,
+        live_scene={s.id: s.rating100 for s in kept_scenes if s.rating100 is not None},
+        live_perf={p.id: p.rating100 for p in kept_performers if p.rating100 is not None})
 
-    aff = algorithm.build_affinities(kept_scenes, now, settings, favorites, ratings)
+    aff = algorithm.build_affinities(kept_scenes, now, settings, favorites, perf_ratings)
     scene_scores = algorithm.score_scenes(kept_scenes, settings, now, date_seed,
-                                          favorites, ratings, aff)
+                                          favorites, perf_ratings, aff,
+                                          scene_ratings=scene_ratings)
     performer_scores = algorithm.score_performers(kept_performers, kept_scenes,
                                                   scene_scores, aff, settings, now)
     log.progress(0.70)
@@ -162,10 +173,18 @@ def _run_full(stash, settings: config.Settings) -> int:
 
     existing_scene_cf = {s.id: s.custom_fields for s in kept_scenes}
     existing_perf_cf = {p.id: p.custom_fields for p in kept_performers}
+    if settings.mirror_to_rating100:
+        _ensure_rating_backup(
+            {s.id: s.rating100 for s in scenes if s.rating100 is not None},
+            {p.id: p.rating100 for p in performers if p.rating100 is not None})
+        scene_kw = {"current_ratings": {s.id: s.rating100 for s in kept_scenes}}
+        perf_kw = {"current_ratings": {p.id: p.rating100 for p in kept_performers}}
+    else:
+        scene_kw = perf_kw = {}
     s_stats = writer.write_scores(stash, "scene", scene_scores, existing_scene_cf,
-                                  settings, now_iso)
+                                  settings, now_iso, **scene_kw)
     p_stats = writer.write_scores(stash, "performer", performer_scores, existing_perf_cf,
-                                  settings, now_iso)
+                                  settings, now_iso, **perf_kw)
     log.progress(0.90)
 
     # D8: drop restash_* from entities now excluded but previously scored.
@@ -292,10 +311,20 @@ def _run_refresh(stash, settings: config.Settings) -> int:
 
     existing_scene_cf = {sid: light_by_id[sid]["custom_fields"] for sid in scene_scores}
     existing_perf_cf = {p.id: p.custom_fields for p in performers}
+    if settings.mirror_to_rating100:
+        _ensure_rating_backup(
+            {sid: light_by_id[sid].get("rating100") for sid in light_by_id
+             if light_by_id[sid].get("rating100") is not None},
+            {p.id: p.rating100 for p in performers if p.rating100 is not None})
+        scene_kw = {"current_ratings": {sid: light_by_id[sid].get("rating100")
+                                        for sid in scene_scores}}
+        perf_kw = {"current_ratings": {p.id: p.rating100 for p in performers}}
+    else:
+        scene_kw = perf_kw = {}
     s_stats = writer.write_scores(stash, "scene", scene_scores, existing_scene_cf,
-                                  settings, now_iso)
+                                  settings, now_iso, **scene_kw)
     p_stats = writer.write_scores(stash, "performer", performer_scores, existing_perf_cf,
-                                  settings, now_iso)
+                                  settings, now_iso, **perf_kw)
     log.progress(0.95)
 
     log.info(f"Restash refresh: scenes written={s_stats['written']} "
@@ -311,6 +340,37 @@ def _run_refresh(stash, settings: config.Settings) -> int:
 
 def _has_restash(custom_fields: dict) -> bool:
     return any(k in (custom_fields or {}) for k in writer.RESTASH_KEYS)
+
+
+def _ensure_rating_backup(scene_ratings: dict, perf_ratings: dict) -> None:
+    """D16: before the first destructive mirror write, ensure a rating backup
+    exists. Creates one (no rotation) from the supplied non-null rating maps when
+    absent, and warns. No-op if a backup already exists."""
+    path = ratings_backup.default_backup_path()
+    if ratings_backup.backup_exists(path):
+        return
+    written_at = stash_io.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    ratings_backup.write_backup(path, scenes=scene_ratings, performers=perf_ratings,
+                                written_at=written_at, rotate=False)
+    log.warning(f"Restash: mirrorToRating100 is ON and no rating backup existed — "
+                f"auto-created one ({len(scene_ratings)} scene + {len(perf_ratings)} "
+                f"performer rating(s)) at {path} before overwriting rating100. Use "
+                f"'Restore Ratings' to revert.")
+
+
+def _manual_ratings(settings, *, live_scene: dict, live_perf: dict):
+    """D21: source the manual-rating prior as (scene_ratings, perf_ratings). Off ->
+    ({}, {}). When the mirror is ON and a backup exists, read the pre-mirror
+    originals from the backup (the live rating100 is Restash's own output — reading
+    it back would be a feedback loop). Otherwise (mirror off, or first mirror run
+    before a backup exists) read the live field."""
+    if not settings.respect_manual_ratings:
+        return {}, {}
+    if settings.mirror_to_rating100:
+        backup = ratings_backup.load_backup(ratings_backup.default_backup_path())
+        if backup is not None:
+            return dict(backup.get("scenes", {})), dict(backup.get("performers", {}))
+    return live_scene, live_perf
 
 
 def _iso(dt) -> str | None:
