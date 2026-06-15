@@ -288,7 +288,8 @@ def _mean_top_n(values: list[float], n: int) -> float:
 
 def scene_base(scene: models.SceneData, aff: dict[str, dict],
                tag_scene_counts: dict[str, int], dur_median: float | None,
-               dur_scale: float | None, cfg: Settings, now: datetime) -> dict:
+               dur_scale: float | None, cfg: Settings, now: datetime,
+               scene_ratings: dict[str, int] | None = None) -> dict:
     """Returns a components dict including 'ingredients', 'direct', 'confidence',
     'base' and the sub-parts, all on the [-1,1] scale (quality centered, D1)."""
     perf_affs = [aff["performers"].get(p, 0.0) for p in scene.performer_ids]
@@ -322,9 +323,17 @@ def scene_base(scene: models.SceneData, aff: dict[str, dict],
     confidence = min(1.0, ne / cfg.confidence_events)
     base = confidence * direct + (1.0 - confidence) * ingredients
 
+    rating_prior = 0.0
+    if cfg.respect_manual_ratings and scene_ratings:
+        r = scene_ratings.get(scene.id)
+        if r is not None:
+            rating_prior = (r - 50) / 50.0 * cfg.scene_rating_weight
+            base += rating_prior
+
     return {"perf": perf_term, "tag": tag_term, "studio": studio_term,
             "quality": quality_term, "ingredients": ingredients, "direct": direct,
-            "confidence": confidence, "base": base, "n_events": ne}
+            "confidence": confidence, "base": base, "rating_prior": rating_prior,
+            "n_events": ne}
 
 
 def _max_dt(a: datetime | None, b: datetime | None) -> datetime | None:
@@ -407,7 +416,8 @@ def refresh_scene_scores(cached_scenes: dict, current_light: dict, cfg: Settings
 def score_scenes(scenes: list[models.SceneData], cfg: Settings, now: datetime,
                  date_seed: str, favorites: set[str] | None = None,
                  ratings: dict[str, int] | None = None,
-                 aff: dict[str, dict] | None = None) -> dict[str, models.SceneScore]:
+                 aff: dict[str, dict] | None = None,
+                 scene_ratings: dict[str, int] | None = None) -> dict[str, models.SceneScore]:
     favorites = favorites or set()
     ratings = ratings or {}
     if aff is None:
@@ -422,7 +432,8 @@ def score_scenes(scenes: list[models.SceneData], cfg: Settings, now: datetime,
     raw_values: list[float] = []
     ids: list[str] = []
     for s in scenes:
-        comp = scene_base(s, aff, tag_counts, dur_median, dur_scale, cfg, now)
+        comp = scene_base(s, aff, tag_counts, dur_median, dur_scale, cfg, now,
+                          scene_ratings=scene_ratings)
         ne = comp["n_events"]
         last = None if ne == 0 else _last_engagement(s)
         final, extra = finalize_from_base(
