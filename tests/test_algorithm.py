@@ -584,6 +584,22 @@ def test_scene_base_adds_manual_rating_prior_when_respected():
     assert on["rating_prior"] == 0.5
     assert off["rating_prior"] == 0.0
 
+def test_scene_base_low_rating_gives_negative_prior():
+    import algorithm
+    from config import Settings
+    from datetime import datetime, timezone
+    now = datetime(2026, 6, 15, tzinfo=timezone.utc)
+    aff = {"performers": {}, "tags": {}, "studios": {}}
+    s = _bare_scene("1")
+    off = algorithm.scene_base(s, aff, {}, None, None,
+                               Settings(respect_manual_ratings=False), now,
+                               scene_ratings={"1": 0})
+    on = algorithm.scene_base(s, aff, {}, None, None,
+                              Settings(respect_manual_ratings=True, scene_rating_weight=0.5),
+                              now, scene_ratings={"1": 0})
+    assert on["rating_prior"] == -0.5            # (0-50)/50 * 0.5
+    assert on["base"] == off["base"] - 0.5
+
 def test_scene_base_no_prior_when_rating_absent():
     import algorithm
     from config import Settings
