@@ -133,8 +133,7 @@ def run_restore(stash, settings) -> int:
     cleared = sum(1 for v in s_targets.values() if v is None) + \
               sum(1 for v in p_targets.values() if v is None)
     failed = s_stats["failed"] + p_stats["failed"]
-    log.info(f"Restash restore: restored {restored} rating(s), cleared {cleared} "
-             f"mirror-applied rating(s); {failed} rejected.")
+    log.info(f"Restash restore: targeted {restored} rating restore(s) + {cleared} clear(s); {failed} rejected.")
     if failed:
         log.error(f"Restash: {failed} rating restore(s) were rejected by the server; "
                   f"re-run to retry.")
