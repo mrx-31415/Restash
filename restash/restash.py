@@ -14,7 +14,17 @@ import writer
 from stashapi import log   # stashapp-tools logging → drives Stash progress bar
 
 
-PLUGIN_ID = "restash"
+def _resolve_plugin_id() -> str:
+    """Stash assigns a plugin its id from the basename of its YAML manifest. Derive
+    that from the manifest sitting next to this file, so a side-by-side install in a
+    differently-named folder/manifest reads ITS OWN settings rather than another
+    install's. Falls back to "restash" if no manifest is found."""
+    here = pathlib.Path(__file__).parent
+    ymls = sorted(here.glob("*.yml")) + sorted(here.glob("*.yaml"))
+    return ymls[0].stem if ymls else "restash"
+
+
+PLUGIN_ID = _resolve_plugin_id()
 
 
 def parse_input(payload: dict):
@@ -51,7 +61,9 @@ def run(payload: dict) -> int:
         plugin_cfg = {**plugin_cfg, **payload["plugin_config"]}
     settings = build_settings(plugin_cfg, args)
     log.info(f"Restash: schema OK (scene custom_fields, "
-             f"remove={caps['custom_fields_remove']}). mode={mode}")
+             f"remove={caps['custom_fields_remove']}). mode={mode} "
+             f"plugin_id={PLUGIN_ID} mirror={settings.mirror_to_rating100} "
+             f"respect_ratings={settings.respect_manual_ratings}")
     if mode == "dry":
         return _run_dry(stash, settings)
     if mode == "full":

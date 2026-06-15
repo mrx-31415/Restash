@@ -13,6 +13,25 @@ def test_parse_input_defaults_mode_to_dry():
     mode, _, _ = entry.parse_input({})
     assert mode == "dry"
 
+def test_resolve_plugin_id_uses_manifest_filename():
+    # the manifest beside the code is restash.yml -> id "restash"; PLUGIN_ID tracks it
+    assert entry._resolve_plugin_id() == "restash"
+    assert entry.PLUGIN_ID == "restash"
+
+def test_run_reads_settings_under_resolved_plugin_id(monkeypatch):
+    # run() must fetch settings with the resolved PLUGIN_ID, not a hardcoded string
+    asked = {}
+    fake_io = types.SimpleNamespace(
+        connect=lambda c: "STASH",
+        ensure_schema=lambda s: {"scene_custom_fields": True, "custom_fields_remove": True},
+        fetch_plugin_settings=lambda s, pid: asked.setdefault("pid", pid) or {})
+    monkeypatch.setattr(entry, "stash_io", fake_io)
+    monkeypatch.setattr(entry, "PLUGIN_ID", "restash_dev")
+    monkeypatch.setattr(entry, "ratings_backup", types.SimpleNamespace(
+        run_backup=lambda stash, settings: 0, run_restore=lambda stash, settings: 0))
+    entry.run({"args": {"mode": "backup-ratings"}})
+    assert asked["pid"] == "restash_dev"
+
 def test_build_settings_applies_plugin_config():
     s = entry.build_settings({"cooldownDays": 7}, {})
     assert s.cooldown_days == 7.0
