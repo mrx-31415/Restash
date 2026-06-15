@@ -13,6 +13,7 @@ settings:
   wildcardPercent:      { displayName: Wildcard %, type: NUMBER, description: "Share of the library promoted as low-confidence wildcards each day. Leave blank for the default (2.0)." }
   respectManualRatings: { displayName: Blend manual ratings as a taste prior, type: BOOLEAN, description: "If on, a performer's manual rating100 nudges their affinity (read-only). Default off." }
   excludeTagName:       { displayName: Exclusion tag name, type: STRING, description: "Entities carrying this tag are dropped from scoring. Leave blank for the default ([Restash: Exclude])." }
+  mirrorToRating100:    { displayName: "Also mirror score to rating100 (destructive)", type: BOOLEAN, description: "If on, each entity's Restash score is ALSO written to native rating100 (enables the in-app 'Rating, descending' sort). OVERWRITES manual ratings; a backup is auto-created first and can be reverted with 'Restore Ratings'. Default off." }
 tasks:
   - name: Dry Run Report
     description: Full compute, writes nothing, logs top-30 scenes/performers with score breakdowns. Run this first.
@@ -26,3 +27,9 @@ tasks:
   - name: Clear Restash Data
     description: Remove all Restash custom fields (restash_*) from scenes + performers. Other fields and ratings are left untouched.
     defaultArgs: { mode: clear }
+  - name: Backup Ratings
+    description: Snapshot every scene/performer's current native rating100 to a file in the plugin folder. Run before enabling the rating100 mirror; keeps timestamped history.
+    defaultArgs: { mode: backup-ratings }
+  - name: Restore Ratings
+    description: Write the backed-up native rating100 values back from the file, reverting the library to the exact backup snapshot (undoes a rating100 mirror).
+    defaultArgs: { mode: restore-ratings }
