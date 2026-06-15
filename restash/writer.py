@@ -84,21 +84,31 @@ def _count_succeeded(result, n: int) -> int:
 
 
 def write_scores(stash, entity: str, scored: dict, existing_custom_fields: dict,
-                 cfg, now_iso: str) -> dict:
+                 cfg, now_iso: str, current_ratings: dict | None = None) -> dict:
     """Partial-write restash_* for changed entities only, in aliased batches.
     `scored` maps id → SceneScore/PerformerScore; `existing_custom_fields` maps id →
-    that entity's current custom_fields (for skip-unchanged). Honors write_limit
+    that entity's current custom_fields (for skip-unchanged). When
+    cfg.mirror_to_rating100 is set, also writes rating100 = score and (using
+    `current_ratings`, id → current rating100) writes entities whose score is
+    unchanged but whose native rating differs (D20). Honors write_limit
     (subset-first gate). Returns {written, skipped, would_write, failed} where
     `written`/`failed` count only server-acknowledged (non-null) aliases."""
     build = scene_partial if entity == "scene" else performer_partial
+    current_ratings = current_ratings or {}
     pending = []
     skipped = 0
     for eid, score in scored.items():
         partial = build(score, now_iso)
-        if not needs_write(existing_custom_fields.get(eid) or {}, partial):
+        need = needs_write(existing_custom_fields.get(eid) or {}, partial)
+        if not need and cfg.mirror_to_rating100:
+            need = current_ratings.get(eid) != int(score.restash_score)
+        if not need:
             skipped += 1
             continue
-        pending.append({"id": str(eid), "custom_fields": {"partial": partial}})
+        inp = {"id": str(eid), "custom_fields": {"partial": partial}}
+        if cfg.mirror_to_rating100:
+            inp["rating100"] = int(score.restash_score)
+        pending.append(inp)
 
     would_write = len(pending)
     if cfg.write_limit and would_write > cfg.write_limit:
