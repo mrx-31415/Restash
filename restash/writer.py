@@ -138,3 +138,20 @@ def clear_scores(stash, entity: str, ids: list, cfg) -> int:
         result = _call_with_retry(stash, query, variables, cfg)
         cleared += _count_succeeded(result, len(batch))
     return cleared
+
+
+def write_ratings(stash, entity: str, id_to_rating: dict, cfg) -> dict:
+    """Write native rating100 (a value, or None to clear) to the given entities, in
+    aliased batches. Used by the Restore Ratings task -- touches ONLY rating100, no
+    custom_fields. Returns {written, failed} counting server-acknowledged aliases."""
+    inputs = [{"id": str(i), "rating100": v} for i, v in id_to_rating.items()]
+    written = 0
+    failed = 0
+    for batch in _chunks(inputs, cfg.write_chunk_size):
+        query = aliased_update_mutation(entity, len(batch))
+        variables = {f"i{k}": inp for k, inp in enumerate(batch)}
+        result = _call_with_retry(stash, query, variables, cfg)
+        ok = _count_succeeded(result, len(batch))
+        written += ok
+        failed += len(batch) - ok
+    return {"written": written, "failed": failed}

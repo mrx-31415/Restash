@@ -224,3 +224,26 @@ def test_clear_scores_counts_only_succeeded_aliases():
     cfg = Settings(write_chunk_size=10)
     cleared = writer.clear_scores(stash, "scene", ["1", "2", "3"], cfg)
     assert cleared == 2
+
+
+def test_write_ratings_sets_values_and_nulls():
+    stash = _RecordingStash()
+    cfg = Settings(write_chunk_size=10)
+    stats = writer.write_ratings(stash, "scene", {"1": 80, "2": None}, cfg)
+    assert stats["written"] == 2 and stats["failed"] == 0
+    by_id = {i["id"]: i for i in stash.requests[0][1].values()}
+    assert by_id["1"]["rating100"] == 80
+    assert by_id["2"]["rating100"] is None
+    for i in stash.requests[0][1].values():
+        assert "custom_fields" not in i   # restore touches ONLY rating100
+
+def test_write_ratings_empty_is_noop():
+    stash = _RecordingStash()
+    assert writer.write_ratings(stash, "scene", {}, Settings()) == {"written": 0, "failed": 0}
+    assert stash.requests == []
+
+def test_write_ratings_batches_by_chunk_size():
+    stash = _RecordingStash()
+    cfg = Settings(write_chunk_size=2)
+    writer.write_ratings(stash, "performer", {str(i): i for i in range(5)}, cfg)
+    assert len(stash.requests) == 3   # 2 + 2 + 1
