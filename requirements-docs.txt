@@ -1,0 +1,4 @@
+# Documentation site toolchain (MkDocs Material). Not needed to run the plugin.
+# Used by scripts to build the docs locally and by .github/workflows/pages.yml in CI.
+#   pip install -r requirements-docs.txt && mkdocs serve
+mkdocs-material>=9.5

@@ -1,9 +1,14 @@
-name: Publish plugin source
+name: Publish docs + plugin source
 
-# Builds the Stash plugin source site (index.yml + restash.zip) and deploys it to
-# GitHub Pages. Users add the resulting URL in Stash → Settings → Plugins →
-# Available Plugins → Add Source:
-#   https://espionage9248.github.io/Restash/index.yml
+# Builds the MkDocs Material documentation site AND the Stash plugin source
+# (index.yml + restash.zip), then deploys both to GitHub Pages from one _site/.
+#
+#   Docs homepage: https://espionage9248.github.io/Restash/
+#   Plugin source: https://espionage9248.github.io/Restash/index.yml
+#
+# Users add the plugin-source URL in Stash → Settings → Plugins → Available
+# Plugins → Add Source. mkdocs runs first (it cleans _site/), then
+# build_source.sh layers the manifest on top — see docs "Publishing the site".
 
 on:
   push:
@@ -30,8 +35,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # build_source.sh needs git history for version + date
-      - name: Build source site
-        run: bash scripts/build_source.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install docs toolchain
+        run: pip install -r requirements-docs.txt
+      - name: Build docs site
+        run: mkdocs build   # writes _site/ (clean build)
+      - name: Build plugin source manifest
+        run: bash scripts/build_source.sh   # adds index.yml + restash.zip to _site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
