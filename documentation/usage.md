@@ -3,6 +3,21 @@
 Run tasks from **Settings → Tasks** in the Stash UI. Recommended first run: **Dry Run Report**,
 eyeball the breakdown, then **Recompute All**.
 
+## Fresh scenes page
+
+Open **Fresh** in the main navigation or visit `/restash/freshness` to browse scenes ordered by the
+canonical `restash_score` custom field. The page does not read or change `rating100`.
+
+Search, set a freshness threshold, switch between grid, list, and wall views, adjust card size,
+or change the page size. The default
+threshold is 95 and can be changed under **Settings → Plugins → Restash**. View state is preserved
+in the `search`, `min`, `op`, `page`, and `pageSize` URL parameters.
+
+Use **Quick Refresh** or **Recompute All** to queue those Restash tasks directly from the page.
+
+Restash loads matching scores in batches, sorts them in the browser, and fetches native card data
+only for the current page. Bulk operations are not available in this first version.
+
 | Task | Mode | What it does |
 |---|---|---|
 | **Dry Run Report** | `dry` | Reads + scores everything, **writes nothing**, logs the top-30 scenes and performers with every term itemised. Safe to run anytime. |

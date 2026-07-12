@@ -1,0 +1,24 @@
+.restash-freshness { padding: 1.5rem; }
+.restash-heading, .restash-controls { display: flex; align-items: center; gap: 1rem; }
+.restash-heading { justify-content: space-between; margin-bottom: 1rem; }
+.restash-heading p { margin: 0; opacity: .75; }
+.restash-task-actions { flex: 0 0 auto; }
+.restash-controls { flex-wrap: wrap; justify-content: center; margin-bottom: 1rem; width: 100%; }
+.restash-controls .form-group { margin-bottom: .5rem; }
+.restash-controls .restash-search-control { flex: 0 1 18rem; width: 18rem; }
+.restash-controls .restash-minimum-selector { width: 14rem; }
+.restash-controls .restash-minimum-selector .input-group { flex-wrap: nowrap; }
+.restash-controls .restash-minimum-selector .input-group-prepend { flex: 0 0 auto; }
+.restash-controls .restash-minimum-selector input { flex: 0 0 4rem; min-width: 0; width: 4rem; }
+.restash-controls .restash-minimum-icon { margin-right: .35rem; }
+.restash-controls .restash-operator { border-radius: 0 !important; min-width: 3.5rem; }
+.restash-controls .restash-minimum-selector .input-group-text,
+.restash-controls .restash-minimum-selector input { background-color: var(--secondary, #6c757d) !important; color: #fff !important; }
+.restash-controls .page-size-selector { width: 5rem; }
+.restash-controls .restash-display-modes { flex: 0 0 auto; margin-left: .75rem; }
+.restash-controls .zoom-slider-container { align-items: center; display: flex; flex: 0 0 60px; justify-content: center; min-width: 60px; position: static; }
+.restash-controls .form-check { margin: 0 0 .5rem; }
+.restash-status { margin: 1rem 0; }
+.restash-freshness-badge { display: inline-block; width: fit-content; margin-top: .35rem; padding: .15rem .45rem; border-radius: .25rem; color: var(--text-color, #fff); background: var(--success, #278047); font-size: .78rem; font-weight: 600; }
+@media (min-width: 1200px) { .restash-fresh-nav .nav-menu-icon + span { margin-left: .45rem; } }
+@media (max-width: 576px) { .restash-freshness { padding: .75rem; } .restash-heading { align-items: flex-start; flex-direction: column; } .restash-task-actions { margin-top: .75rem; } }
