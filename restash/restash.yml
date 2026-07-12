@@ -6,7 +6,13 @@ exec:
   - python
   - "{pluginDir}/restash.py"
 interface: raw
+ui:
+  javascript:
+    - freshness-view.js
+  css:
+    - freshness-view.css
 settings:
+  freshnessDefaultMinimum: { displayName: Fresh page default minimum, type: NUMBER, description: "Default minimum restash_score on the Fresh page (1–100). Leave blank for 95." }
   tasteHalfLifeDays:    { displayName: Taste half-life (days), type: NUMBER, description: "How fast older watch events fade when building taste. Leave blank for the default (90)." }
   cooldownDays:         { displayName: Cooldown period (days), type: NUMBER, description: "Post-watch suppression window before rediscovery begins. Leave blank for the default (21)." }
   freshWeight:          { displayName: Freshness strength, type: NUMBER, description: "Multiplier on the cooldown/rediscovery effect. Leave blank for the default (1.0)." }
